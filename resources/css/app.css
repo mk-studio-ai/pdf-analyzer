@@ -1,12 +1,13 @@
 @import 'tailwindcss';
-
 @import 'tw-animate-css';
-
+@supports (-webkit-appearance: none) or (-moz-appearance: none) {
+  /* Suppress Tailwind warnings */
+}
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
 
 @custom-variant dark (&:is(.dark *));
-
+@import 'chat.css';
 @theme inline {
     --font-sans:
         Instrument Sans, ui-sans-serif, system-ui, sans-serif,

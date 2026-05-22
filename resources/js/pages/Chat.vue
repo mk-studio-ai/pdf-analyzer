@@ -1,42 +1,65 @@
 <template>
-  <div class="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 p-4">
-    <div class="max-w-2xl mx-auto">
+  <div class="chat-container">
+    <div class="chat-wrapper">
       <!-- Header -->
-      <div class="mb-6">
-        <h1 class="text-3xl font-bold text-white mb-2">AI Chat</h1>
-        <p class="text-gray-400">Ask anything powered by Gemini</p>
+      <div class="chat-header">
+        <h1 class="chat-title">AI Document Analyzer</h1>
+        <p class="chat-subtitle">Upload PDF or chat with AI</p>
+      </div>
+
+      <!-- File Upload -->
+      <div class="chat-upload">
+        <label class="upload-label">
+          <svg class="upload-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+          </svg>
+          <span class="upload-text">Choose PDF file</span>
+          <input 
+            type="file" 
+            accept=".pdf"
+            @change="handleFileUpload"
+            class="hidden"
+          />
+        </label>
+        <p v-if="uploadedFileName" class="upload-success">
+          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+          </svg>
+          {{ uploadedFileName }}
+        </p>
       </div>
 
       <!-- Messages Container -->
-      <div class="bg-gray-800 rounded-lg p-6 mb-4 h-96 overflow-y-auto space-y-4">
-        <div v-for="(msg, idx) in messages" :key="idx" :class="['p-4 rounded-lg', msg.role === 'user' ? 'bg-blue-600 text-white ml-auto max-w-xs' : 'bg-gray-700 text-gray-100 mr-auto max-w-xs']">
-          <p class="text-sm">{{ msg.content }}</p>
+      <div class="messages-container">
+        <div v-for="(msg, idx) in messages" :key="idx" :class="['message', msg.role === 'user' ? 'message-user' : 'message-assistant']">
+          <p class="message-text">{{ msg.content }}</p>
         </div>
         
         <!-- Loading indicator -->
-        <div v-if="loading" class="bg-gray-700 text-gray-100 p-4 rounded-lg max-w-xs">
-          <div class="flex gap-2">
-            <div class="w-2 h-2 bg-white rounded-full animate-pulse"></div>
-            <div class="w-2 h-2 bg-white rounded-full animate-pulse" style="animation-delay: 0.2s"></div>
-            <div class="w-2 h-2 bg-white rounded-full animate-pulse" style="animation-delay: 0.4s"></div>
+        <div v-if="loading" class="loading-indicator">
+          <div class="flex gap-1">
+            <div class="loading-dot" style="animation-delay: 0s"></div>
+            <div class="loading-dot" style="animation-delay: 0.1s"></div>
+            <div class="loading-dot" style="animation-delay: 0.2s"></div>
           </div>
+          <span class="loading-text">Analyzing...</span>
         </div>
       </div>
 
       <!-- Input -->
-      <div class="flex gap-2">
+      <div class="input-container">
         <input 
           v-model="prompt" 
           @keyup.enter="sendMessage"
           type="text" 
-          placeholder="Type your message..." 
-          class="flex-1 px-4 py-3 bg-gray-700 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          placeholder="Ask about your document..." 
+          class="input-field"
           :disabled="loading"
         />
         <button 
           @click="sendMessage"
           :disabled="loading || !prompt"
-          class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          class="send-button"
         >
           Send
         </button>
@@ -51,11 +74,24 @@ import { ref } from 'vue'
 const prompt = ref('')
 const messages = ref([])
 const loading = ref(false)
+const uploadedFile = ref(null)
+const uploadedFileName = ref('')
+
+const handleFileUpload = (e) => {
+  const file = e.target.files[0]
+  if (file) {
+    uploadedFile.value = file
+    uploadedFileName.value = file.name
+    messages.value.push({
+      role: 'assistant',
+      content: `📄 Loaded: ${file.name}\n\nNow you can ask questions about this document.`
+    })
+  }
+}
 
 const sendMessage = async () => {
   if (!prompt.value.trim()) return
 
-  // Add user message
   messages.value.push({
     role: 'user',
     content: prompt.value
@@ -66,17 +102,19 @@ const sendMessage = async () => {
   loading.value = true
 
   try {
+    const formData = new FormData()
+    formData.append('prompt', userMessage)
+    if (uploadedFile.value) {
+      formData.append('file', uploadedFile.value)
+    }
+
     const response = await fetch('/api/chat', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ prompt: userMessage })
+      body: formData
     })
 
     const data = await response.json()
     
-    // Extract AI response
     const aiMessage = data.candidates?.[0]?.content?.parts?.[0]?.text || 'No response'
     
     messages.value.push({
